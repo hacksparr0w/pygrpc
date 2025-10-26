@@ -6,6 +6,32 @@ from enum import Enum, auto
 from io import BufferedIOBase, BytesIO
 
 
+__all__ = (
+    "MessageFields",
+    "MessageFieldType",
+    "MessageType",
+    "OptionalType",
+    "PrimitiveType",
+    "Stream",
+    "Type",
+    "WireType",
+
+    "get_wire_type",
+    "read_bytes",
+    "read_message",
+    "read_message_field",
+    "read_primitive",
+    "read_string",
+    "read_varint",
+    "write",
+    "write_bytes",
+    "write_message",
+    "write_message_field",
+    "write_string",
+    "write_varint"
+)
+
+
 class PrimitiveType(Enum):
     INT32 = auto()
     STRING = auto()
@@ -27,10 +53,10 @@ class WireType(Enum):
 
 
 type Type = PrimitiveType | MessageType
-type MessageFieldType = Type | Optional[typing.Any, typing.Any]
+type MessageFieldType = Type | OptionalType[typing.Any, typing.Any]
 
 
-class Optional[A: Type, B]:
+class OptionalType[A: Type, B]:
     type: A
     value: B
 
@@ -53,7 +79,7 @@ type Stream = BufferedIOBase
 
 
 def get_wire_type(type: MessageFieldType) -> WireType:
-    if isinstance(type, Optional):
+    if isinstance(type, OptionalType):
         return get_wire_type(type.type)
     elif isinstance(type, MessageType):
         return WireType.LEN
@@ -108,7 +134,7 @@ def read_message_field(
     field_number = tag >> 0x03
     _, field_type = fields[field_number]
 
-    if isinstance(field_type, Optional):
+    if isinstance(field_type, OptionalType):
         field_type = field_type.type
 
     if isinstance(field_type, MessageType):
@@ -183,7 +209,7 @@ def write_message_field(
     field_number: int,
     value: typing.Any | None
 ) -> None:
-    if isinstance(field_type, Optional) and value is None:
+    if isinstance(field_type, OptionalType) and value == field_type.value:
         return
 
     wire_type = get_wire_type(field_type)
@@ -211,4 +237,4 @@ def write(stream: Stream, type: Type, value: typing.Any) -> None:
     elif isinstance(type, MessageType):
         return write_message(stream, type, value)
 
-    raise TypeError(f"Unsupported type '{type}'")
+    raise NotImplementedError
