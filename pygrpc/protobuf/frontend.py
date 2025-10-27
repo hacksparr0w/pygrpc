@@ -13,8 +13,8 @@ __all__ = (
     "FrontendError",
     "UnsupportedTypeError",
 
-    "convert",
-    "convert_model",
+    "get_type",
+    "get_model_type",
     "int32"
 )
 
@@ -66,14 +66,14 @@ def get_field_number(target: Any) -> int:
     return get_field_number(type_args[0])
 
 
-def convert_model(model: type[BaseModel]) -> codec.MessageType:
+def get_model_type(model: type[BaseModel]) -> codec.MessageType:
     fields = {}
 
     for field_name, field_info in model.model_fields.items():
         field_annotation = field_info.annotation
         field_default = field_info.default
         field_number = get_field_number(field_annotation)
-        field_type = convert(field_annotation)
+        field_type = get_type(field_annotation)
 
         if field_default is not PydanticUndefined:
             field_type = codec.OptionalType(field_type, field_default)
@@ -83,9 +83,9 @@ def convert_model(model: type[BaseModel]) -> codec.MessageType:
     return MessageType(fields)
 
 
-def convert(target: Any) -> codec.Type:
+def get_type(target: Any) -> codec.Type:
     if isinstance(target, TypeAliasType):
-        return convert(target.__value__)
+        return get_type(target.__value__)
 
     if typing.get_origin(target) is Annotated:
         type_args = typing.get_args(target)
@@ -100,11 +100,11 @@ def convert(target: Any) -> codec.Type:
             pass
 
         try:
-            return convert(type_args[0])
+            return get_type(type_args[0])
         except UnsupportedTypeError:
             pass
     elif issubclass(target, BaseModel):
-        return convert_model(target)
+        return get_model_type(target)
     elif target is str:
         return codec.PrimitiveType.STRING
 

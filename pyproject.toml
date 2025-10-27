@@ -5,6 +5,8 @@ description = "Pythonic interface for the gRPC protocol focusing primarily on th
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "aiohttp>=3.13.1",
     "annotated-types>=0.7.0",
     "pydantic>=2.12.3",
+    "yarl>=1.22.0",
 ]

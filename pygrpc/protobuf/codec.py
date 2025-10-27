@@ -5,6 +5,8 @@ import typing
 from enum import Enum, auto
 from io import BufferedIOBase, BytesIO
 
+from ..common import Stream
+
 
 __all__ = (
     "MessageFields",
@@ -12,7 +14,6 @@ __all__ = (
     "MessageType",
     "OptionalType",
     "PrimitiveType",
-    "Stream",
     "Type",
     "WireType",
 
@@ -73,9 +74,6 @@ class MessageType:
 
     def __init__(self, fields: MessageFields) -> None:
         self.fields = fields
-
-
-type Stream = BufferedIOBase
 
 
 def get_wire_type(type: MessageFieldType) -> WireType:
