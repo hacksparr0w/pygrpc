@@ -1,12 +1,15 @@
+from __future__ import annotations
+
 import base64
 
+from enum import Enum
 from io import BytesIO
 
 import aiohttp
 
 from pydantic import BaseModel
 
-from . import protobuf
+from .. import protobuf
 
 
 __all__ = (
@@ -61,9 +64,9 @@ def write_message_frame(
     message: BaseModel
 ) -> None:
     buf = BytesIO()
-    protobuf.write_message(buf, type, message.model_serialize())
+    protobuf.write_message(buf, type, message.model_dump())
     data = buf.getvalue()
-    write_message_frame(stream, FrameId.MESSAGE, data)
+    write_frame(stream, FrameId.MESSAGE, data)
 
 
 def write_trailer_frame(
@@ -125,9 +128,9 @@ async def unary_unary_call[T: BaseModel](
     request_message: BaseModel,
     requet_headers: dict[str, str],
     request_trailers: dict[str, str]
-) -> tuple[T, dict[str, str]]
-    headers = {
-        **headers,
+) -> tuple[T, dict[str, str]]:
+    requet_headers = {
+        **requet_headers,
         "Accept": "application/grpc-web-text",
         "Content-Type": "application/grpc-web-text",
         "X-User-Agent": "grpc-web-javascript/0.1"
@@ -135,16 +138,21 @@ async def unary_unary_call[T: BaseModel](
 
     buf = BytesIO()
 
-    write_message(buf, request_type, request_message)
+    write_message_frame(buf, request_type, request_message)
 
     if request_trailers:
-        write_trailers(buf, request_trailers)
+        write_trailer_frame(buf, request_trailers)
 
     data = buf.getvalue()
     data = base64.b64encode(data)
 
     async with aiohttp.ClientSession() as session:
-        async with session.post(url, data=data, headers=headers) as response:
+        async with session.post(
+            url,
+            data=data,
+            headers=requet_headers
+        ) as response:
+
             data = await response.read()
 
     data = base64.b64decode(data)

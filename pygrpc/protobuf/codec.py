@@ -76,10 +76,8 @@ class MessageType:
         self.fields = fields
 
 
-def get_wire_type(type: MessageFieldType) -> WireType:
-    if isinstance(type, OptionalType):
-        return get_wire_type(type.type)
-    elif isinstance(type, MessageType):
+def get_wire_type(type: Type) -> WireType:
+    if isinstance(type, MessageType):
         return WireType.LEN
     elif type == PrimitiveType.INT32:
         return WireType.VARINT
@@ -207,14 +205,17 @@ def write_message_field(
     field_number: int,
     value: typing.Any | None
 ) -> None:
-    if isinstance(field_type, OptionalType) and value == field_type.value:
-        return
+    if isinstance(field_type, OptionalType):
+        if value == field_type.value:
+            return
+
+        field_type = field_type.type
 
     wire_type = get_wire_type(field_type)
-    tag = (field_number << 0x03) | wire_type
+    tag = (field_number << 0x03) | wire_type.value
 
     write_varint(stream, tag)
-    write(stream, base_type, value)
+    write(stream, field_type, value)
 
 
 def write_message(

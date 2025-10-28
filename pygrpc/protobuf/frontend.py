@@ -2,7 +2,7 @@ import typing
 
 from typing import Annotated, Any, TypeAliasType
 
-from pydantic import BaseModel, PydanticUndefined
+from pydantic import BaseModel
 from pydantic_core import PydanticUndefined
 from annotated_types import Interval
 
@@ -10,7 +10,9 @@ from . import codec
 
 
 __all__ = (
+    "FieldNumber",
     "FrontendError",
+    "UndefinedFieldNumberError",
     "UnsupportedTypeError",
 
     "get_type",
@@ -23,7 +25,7 @@ class FrontendError(Exception):
     pass
 
 
-class UnsupportedTypeError(FrontnedError):
+class UnsupportedTypeError(FrontendError):
     pass
 
 
@@ -70,7 +72,12 @@ def get_model_type(model: type[BaseModel]) -> codec.MessageType:
     fields = {}
 
     for field_name, field_info in model.model_fields.items():
+        field_metadata = field_info.metadata
         field_annotation = field_info.annotation
+
+        if field_metadata:
+            field_annotation = Annotated[field_annotation, *field_metadata]
+
         field_default = field_info.default
         field_number = get_field_number(field_annotation)
         field_type = get_type(field_annotation)
@@ -80,7 +87,7 @@ def get_model_type(model: type[BaseModel]) -> codec.MessageType:
 
         fields[field_number] = (field_name, field_type)
 
-    return MessageType(fields)
+    return codec.MessageType(fields)
 
 
 def get_type(target: Any) -> codec.Type:
