@@ -58,10 +58,11 @@ def generate_method(template):
         return await protocol.unary_unary_call(
             url,
             request_type,
-            response_type,
             message,
             headers,
-            trailers
+            trailers,
+            response_type,
+            response_annotation
         )
 
     return run

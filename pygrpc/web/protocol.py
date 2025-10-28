@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import base64
 
-from enum import Enum
+from enum import Enum, auto
 from io import BytesIO
+from typing import Generator
 
 import aiohttp
 
-from pydantic import BaseModel
+from pydantic import BaseModel, TypeAdapter
 
 from .. import protobuf
 
@@ -15,10 +16,15 @@ from .. import protobuf
 __all__ = (
     "FrameExpectedError",
     "FrameId",
+    "Headers",
     "ProtocolError",
+    "Trailers",
     "UnexpectedFrameError",
 
+    "decode_frames",
     "decode_trailers",
+    "decode_unary_response",
+    "encode_unary_request",
     "write_frame",
     "write_message_frame",
     "write_trailer_frame",
@@ -39,6 +45,10 @@ class UnexpectedFrameError(ProtocolError):
     pass
 
 
+class UnknownFrameIdError(ProtocolError):
+    pass
+
+
 class FrameId(Enum):
     MESSAGE = b"\x00"
     TRAILER = b"\x80"
@@ -49,7 +59,11 @@ class FrameId(Enum):
             if member.value == value:
                 return member
 
-        raise ValueError
+        raise UnknownFrameIdError
+
+
+type Headers = dict[str, str]
+type Trailers = dict[str, str]
 
 
 def write_frame(stream: Stream, id: FrameId, data: bytes) -> None:
@@ -71,7 +85,7 @@ def write_message_frame(
 
 def write_trailer_frame(
     stream: Stream,
-    trailers: dict[str, str],
+    trailers: Trailers,
     encoding: str = "utf-8"
 ) -> None:
     buf = BytesIO()
@@ -106,7 +120,14 @@ def read_frame(stream: Stream) -> tuple[FrameId, bytes]:
     return (frame_id, data)
 
 
-def decode_trailers(data: bytes, encoding: str = "utf-8") -> dict[str, str]:
+def decode_frames(data: bytes) -> Generator[tuple[FrameId, bytes]]:
+    buf = BytesIO(data)
+
+    while buf.tell() != len(data):
+        yield read_frame(buf)
+
+
+def decode_trailers(data: bytes, encoding: str = "utf-8") -> Trailers:
     text = data.decode(encoding)
     lines = text.split("\r\n")
     trailers = {}
@@ -121,14 +142,79 @@ def decode_trailers(data: bytes, encoding: str = "utf-8") -> dict[str, str]:
     return trailers
 
 
-async def unary_unary_call[T: BaseModel](
+def decode_unary_response(
+    data: bytes,
+    type: protobuf.MessageType,
+    model: Any
+) -> tuple[BaseModel, Trailers]:
+    frames = list(decode_frames(base64.b64decode(data)))
+
+    if len(frames) == 0:
+        raise FrameExpectedError
+    if len(frames) == 1:
+        frame_id, frame_data = frames[0]
+
+        if frame_id != FrameId.MESSAGE:
+            raise FrameExpectedError
+
+        message = TypeAdapter(model).python_validate(
+            protobuf.decode_message(
+                frame_data,
+                type
+            )
+        )
+
+        trailers = {}
+    elif len(frames) == 2:
+        message_frame_id, message_frame_data = frame[0]
+        trailer_frame_id, trailer_frame_data = frame[1]
+
+        if message_frame_id != FrameId.MESSAGE or \
+            trailer_frame_id != FrameId.TRAILER:
+
+            raise UnexpectedFrameError
+        
+        message = TypeAdapter(model).python_validate(
+            protobuf.decode_message(
+                message_frame_data,
+                type
+            )
+        )
+
+        trailers = decode_trailers(trailer_frame_data)
+    else:
+        raise UnexpectedFrameError
+
+    return message, trailers
+
+
+def encode_unary_request(
+    type: protobuf.MessageType,
+    message: BaseModel,
+    trailers: Trailers
+) -> bytes:
+    buf = BytesIO()
+
+    write_message_frame(buf, type, message)
+
+    if trailers:
+        write_trailer_frame(buf, trailers)
+
+    data = buf.getvalue()
+    data = base64.b64encode(data)
+
+    return data
+
+
+async def unary_unary_call(
     url: str,
     request_type: protobuf.MessageType,
-    response_type: protobuf.MessageType,
     request_message: BaseModel,
-    requet_headers: dict[str, str],
-    request_trailers: dict[str, str]
-) -> tuple[T, dict[str, str]]:
+    requet_headers: Headers,
+    request_trailers: Trailers,
+    response_type: protobuf.MessageType,
+    response_model: Any
+) -> tuple[BaseModel, Trailers]:
     requet_headers = {
         **requet_headers,
         "Accept": "application/grpc-web-text",
@@ -136,52 +222,25 @@ async def unary_unary_call[T: BaseModel](
         "X-User-Agent": "grpc-web-javascript/0.1"
     }
 
-    buf = BytesIO()
-
-    write_message_frame(buf, request_type, request_message)
-
-    if request_trailers:
-        write_trailer_frame(buf, request_trailers)
-
-    data = buf.getvalue()
-    data = base64.b64encode(data)
+    request_data = encode_unary_request(
+        request_type,
+        request_message,
+        request_trailers
+    )
 
     async with aiohttp.ClientSession() as session:
         async with session.post(
             url,
-            data=data,
+            data=request_data,
             headers=requet_headers
         ) as response:
 
-            data = await response.read()
+            response_data = await response.read()
 
-    data = base64.b64decode(data)
-    buf = BytesIO(data)
-
-    response_message = None
-    response_trailers = {}
-
-    while buf.tell() != len(data):
-        frame_id, payload = read_frame(buf)
-
-        if frame_id == FrameId.MESSAGE:
-            if response_message is not None:
-                raise UnexpectedFrameError
-
-            response_message = protobuf.read_message(
-                BytesIO(payload),
-                response_type,
-                len(payload)
-            )
-        elif frame_id == FrameId.TRAILER:
-            if response_trailers:
-                raise UnexpectedFrameError
-
-            response_trailers = decode_trailers(payload)
-        else:
-            raise NotImplementedError
-
-    if response_message is None:
-        raise FrameExpectedError
+    response_message, response_trailers = decode_unary_response(
+        response_data,
+        response_type,
+        response_model
+    )
 
     return response_message, response_trailers

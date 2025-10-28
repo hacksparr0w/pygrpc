@@ -17,6 +17,7 @@ __all__ = (
     "Type",
     "WireType",
 
+    "decode_message",
     "get_wire_type",
     "read_bytes",
     "read_message",
@@ -143,10 +144,10 @@ def read_message_field(
 
 def read_message(
     stream: Stream,
-    message_type: MessageType,
+    type: MessageType,
     size: int
 ) -> dict[str, typing.Any]:
-    fields = message_type.fields
+    fields = type.fields
     data = stream.read(size)
 
     if not data:
@@ -177,6 +178,10 @@ def read_primitive(
         return read_string(stream)
 
     raise NotImplementedError
+
+
+def decode_message(data: bytes, type: MessageType) -> dict[str, typing.Any]:
+    return read_message(BytesIO(data), type, len(data))
 
 
 def write_varint(stream: Stream, value: int) -> None:
