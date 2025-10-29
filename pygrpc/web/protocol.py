@@ -166,8 +166,8 @@ def decode_unary_response(
 
         trailers = {}
     elif len(frames) == 2:
-        message_frame_id, message_frame_data = frame[0]
-        trailer_frame_id, trailer_frame_data = frame[1]
+        message_frame_id, message_frame_data = frames[0]
+        trailer_frame_id, trailer_frame_data = frames[1]
 
         if message_frame_id != FrameId.MESSAGE or \
             trailer_frame_id != FrameId.TRAILER:
