@@ -132,7 +132,7 @@ def decode_trailers(data: bytes, encoding: str = "utf-8") -> Trailers:
     lines = text.split("\r\n")
     trailers = {}
 
-    for line in lines:
+    for line in lines[:-1]:
         key, value = line.split(":", maxsplit=1)
         key = key.strip()
         value = value.strip()
