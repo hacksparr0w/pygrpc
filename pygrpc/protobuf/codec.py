@@ -137,9 +137,9 @@ def read_message_field(
     if isinstance(field_type, MessageType):
         size = read_varint(stream)
 
-        return read_message(stream, field_type, size)
+        return field_number, read_message(stream, field_type, size)
     else:
-        return read_primitive(stream, field_type)
+        return field_number, read_primitive(stream, field_type)
 
 
 def read_message(
