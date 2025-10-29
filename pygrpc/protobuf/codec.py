@@ -201,7 +201,7 @@ def write_bytes(stream: Stream, value: bytes) -> None:
 
 
 def write_string(stream: Stream, value: str, encoding: str = "utf-8") -> None:
-    write_bytes(value.encode(encoding))
+    write_bytes(stream, value.encode(encoding))
 
 
 def write_message_field(
