@@ -34,9 +34,18 @@ __all__ = (
 )
 
 
+class CodecError(Exception):
+    pass
+
+
+class UnexpectedFieldNumberError(Exception):
+    pass
+
+
 class PrimitiveType(Enum):
     INT32 = auto()
     STRING = auto()
+    UINT32 = auto()
 
 
 class WireType(Enum):
@@ -129,7 +138,11 @@ def read_message_field(
 ) -> tuple[int, typing.Any]:
     tag = read_varint(stream)
     field_number = tag >> 0x03
-    _, field_type = fields[field_number]
+
+    try:
+        _, field_type = fields[field_number]
+    except KeyError:
+        raise UnexpectedFieldNumberError
 
     if isinstance(field_type, OptionalType):
         field_type = field_type.type
@@ -176,6 +189,8 @@ def read_primitive(
         return read_varint(stream)
     elif type == PrimitiveType.STRING:
         return read_string(stream)
+    elif type == PrimitiveType.UINT32:
+        return read_varint(stream)
 
     raise NotImplementedError
 
@@ -238,6 +253,8 @@ def write(stream: Stream, type: Type, value: typing.Any) -> None:
         return write_varint(stream, value)
     elif type == PrimitiveType.STRING:
         return write_string(stream, value)
+    elif type == PrimitiveType.UINT32:
+        return write_varint(stream, value)
     elif isinstance(type, MessageType):
         return write_message(stream, type, value)
 

@@ -17,7 +17,8 @@ __all__ = (
 
     "get_type",
     "get_model_type",
-    "int32"
+    "int32",
+    "uint32"
 )
 
 
@@ -43,7 +44,13 @@ class FieldNumber:
 type int32 = Annotated[
     int,
     codec.PrimitiveType.INT32,
-    Interval(ge=-2 ** 3, le=2 ** 31 - 1)
+    Interval(ge=-2 ** 31, le=2 ** 31 - 1)
+]
+
+type uint32 = Annotated[
+    int,
+    codec.PrimitiveType.UINT32,
+    Interval(ge=0, le=2 ** 32 - 1)
 ]
 
 
