@@ -55,6 +55,15 @@ def generate_method(template):
 
     async def run(self, message, headers={}, trailers={}):
         url = URL(self.url) / type(self).__service_name__ / rpc_name
+        headers = {
+            **headers,
+            **self.headers
+        }
+
+        trailers = {
+            **trailers,
+            **self.trailers
+        }
 
         return await protocol.unary_unary_call(
             url,

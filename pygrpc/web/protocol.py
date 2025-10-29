@@ -210,13 +210,13 @@ async def unary_unary_call(
     url: str,
     request_type: protobuf.MessageType,
     request_message: BaseModel,
-    requet_headers: Headers,
+    request_headers: Headers,
     request_trailers: Trailers,
     response_type: protobuf.MessageType,
     response_model: Any
 ) -> tuple[BaseModel, Trailers]:
-    requet_headers = {
-        **requet_headers,
+    request_headers = {
+        **request_headers,
         "Accept": "application/grpc-web-text",
         "Content-Type": "application/grpc-web-text",
         "X-User-Agent": "grpc-web-javascript/0.1"
@@ -232,7 +232,7 @@ async def unary_unary_call(
         async with session.post(
             url,
             data=request_data,
-            headers=requet_headers
+            headers=request_headers
         ) as response:
 
             response_data = await response.read()
