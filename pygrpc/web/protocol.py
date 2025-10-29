@@ -68,7 +68,7 @@ type Trailers = dict[str, str]
 
 def write_frame(stream: Stream, id: FrameId, data: bytes) -> None:
     stream.write(id.value)
-    stream.write(len(data).to_bytes(byteorder="big", signed=False))
+    stream.write(len(data).to_bytes(length=4, byteorder="big", signed=False))
     stream.write(data)
 
 
@@ -157,7 +157,7 @@ def decode_unary_response(
         if frame_id != FrameId.MESSAGE:
             raise FrameExpectedError
 
-        message = TypeAdapter(model).python_validate(
+        message = TypeAdapter(model).validate_python(
             protobuf.decode_message(
                 frame_data,
                 type
@@ -174,7 +174,7 @@ def decode_unary_response(
 
             raise UnexpectedFrameError
         
-        message = TypeAdapter(model).python_validate(
+        message = TypeAdapter(model).validate_python(
             protobuf.decode_message(
                 message_frame_data,
                 type

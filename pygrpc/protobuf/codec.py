@@ -150,7 +150,7 @@ def read_message(
     fields = type.fields
     data = stream.read(size)
 
-    if not data:
+    if len(data) != size:
         raise EOFError
 
     substream = BytesIO(data)

@@ -38,13 +38,14 @@ def generate_method(template):
         )
 
     request_type = protobuf.get_type(request_annotation)
-    response_type = protobuf.get_type(response_annotation)
 
     if not isinstance(request_type, protobuf.MessageType):
         raise TypeError(
-            f"RPC request in method '{qualname}' must be of a message type, "
-            f"'{request_annotation}' given"
+            f"RPC request in method '{qualname}' must be of a message "
+            f"type, '{request_annotation}' given"
         )
+
+    response_type = protobuf.get_type(response_annotation)
 
     if not isinstance(response_type, protobuf.MessageType):
         raise TypeError(
